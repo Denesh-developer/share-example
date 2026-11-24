@@ -3,107 +3,191 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Share my location</title>
+<meta name="theme-color" content="#050816">
+<title>Share my live location | Geo Spatial Weather</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 20px;
-         background: #0b1020; color: #e2e8f0; font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif; }
-  .card { width: 100%; max-width: 420px; background: #111a33; border: 1px solid #22305a; border-radius: 20px; padding: 28px 24px; text-align: center; }
-  h1 { margin: 0 0 6px; font-size: 22px; }
-  p { margin: 8px 0; color: #94a3b8; font-size: 14.5px; }
-  button { width: 100%; margin-top: 18px; padding: 15px; border: 0; border-radius: 14px; font: 700 16px inherit; cursor: pointer; }
-  #go { background: #38bdf8; color: #06202e; }
-  #stop { background: #ef4444; color: #fff; display: none; }
-  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #64748b; margin-right: 8px; }
-  .live .dot { background: #34d399; box-shadow: 0 0 0 0 rgba(52,211,153,.7); animation: p 1.6s infinite; }
-  @keyframes p { to { box-shadow: 0 0 0 12px rgba(52,211,153,0); } }
-  #status { margin-top: 16px; font-weight: 600; }
-  small { display: block; margin-top: 14px; color: #64748b; font-size: 12.5px; }
+  :root { color-scheme: dark; --ac: #38bdf8; --ok: #34d399; --bad: #f87171; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { margin: 0; color: #e2e8f0; font: 15px/1.5 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; overflow-x: hidden;
+         background: radial-gradient(1200px 700px at 50% -10%, #12255a 0%, #070b1c 55%, #03050f 100%); }
+  #stars { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; }
+  .wrap { position: relative; z-index: 1; min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 22px 16px calc(22px + env(safe-area-inset-bottom)); }
+  .top { width: 100%; max-width: 440px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .2px; }
+  .logo { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(135deg, #38bdf8, #6366f1); box-shadow: 0 6px 20px rgba(56,189,248,.4); }
+  .brand small { display: block; font-weight: 600; font-size: 10.5px; color: #7dd3fc; letter-spacing: 1.4px; text-transform: uppercase; }
+  .lang { display: flex; padding: 3px; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); }
+  .lang button { all: unset; cursor: pointer; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #94a3b8; }
+  .lang button.on { background: rgba(56,189,248,.2); color: #e0f2fe; }
+
+  .card { position: relative; width: 100%; max-width: 440px; border-radius: 26px; padding: 26px 22px 22px; text-align: center;
+          background: linear-gradient(165deg, rgba(22,34,72,.78), rgba(8,13,32,.88)); backdrop-filter: blur(22px) saturate(150%); -webkit-backdrop-filter: blur(22px) saturate(150%);
+          border: 1px solid rgba(255,255,255,.09); box-shadow: 0 30px 80px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.08); }
+  .card::before { content: ''; position: absolute; inset: -1px; border-radius: 27px; padding: 1px; pointer-events: none;
+          background: linear-gradient(140deg, rgba(56,189,248,.55), transparent 35%, transparent 65%, rgba(99,102,241,.45));
+          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+
+  .orb { position: relative; width: 132px; height: 132px; margin: 2px auto 16px; }
+  .globe { position: absolute; inset: 16px; border-radius: 50%;
+           background: radial-gradient(circle at 32% 28%, #7dd3fc 0%, #2563eb 38%, #0b1f55 78%, #050c26 100%); box-shadow: 0 0 40px rgba(56,189,248,.45), inset -14px -10px 26px rgba(0,0,0,.55); overflow: hidden; }
+  .globe::after { content: ''; position: absolute; inset: 0; border-radius: 50%; opacity: .5;
+           background: repeating-linear-gradient(90deg, transparent 0 17px, rgba(255,255,255,.12) 17px 18px), repeating-linear-gradient(0deg, transparent 0 17px, rgba(255,255,255,.12) 17px 18px); animation: spin 14s linear infinite; background-size: 36px 36px; }
+  @keyframes spin { to { background-position: 36px 0, 0 0; } }
+  .ring { position: absolute; inset: 0; border-radius: 50%; border: 1px dashed rgba(125,211,252,.35); animation: orbit 9s linear infinite; }
+  .ring::after { content: ''; position: absolute; top: -4px; left: 50%; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 12px #fbbf24; }
+  @keyframes orbit { to { transform: rotate(360deg); } }
+  .pin { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: #fff; border: 3px solid var(--ac); z-index: 2; }
+  .live .pin { border-color: var(--ok); }
+  .live .pin::after, .live .pin::before { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--ok); animation: ping 2s ease-out infinite; }
+  .live .pin::before { animation-delay: 1s; }
+  @keyframes ping { from { transform: scale(1); opacity: .9; } to { transform: scale(4.2); opacity: 0; } }
+
+  h1 { margin: 0 0 6px; font-size: 22px; line-height: 1.25; font-weight: 800; letter-spacing: -.2px; }
+  h1 b { color: #7dd3fc; }
+  .sub { margin: 0 0 16px; color: #94a3b8; font-size: 14px; }
+  .pts { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 8px; text-align: left; }
+  .pts li { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 13px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.06); font-size: 13.5px; color: #cbd5e1; }
+  .pts svg { flex: none; width: 18px; height: 18px; stroke: #7dd3fc; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .btn { width: 100%; border: 0; border-radius: 16px; padding: 16px; font: 800 16px 'Inter', inherit; cursor: pointer; transition: transform .15s, box-shadow .2s; }
+  .btn:active { transform: scale(.98); }
+  #go { color: #04121f; background: linear-gradient(135deg, #7dd3fc, #38bdf8 55%, #6366f1); box-shadow: 0 12px 30px rgba(56,189,248,.4); }
+  #stop { display: none; color: #fecaca; background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.4); }
+
+  .pill { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); color: #cbd5e1; }
+  .pill i { width: 8px; height: 8px; border-radius: 50%; background: #64748b; }
+  .live .pill { color: #a7f3d0; border-color: rgba(52,211,153,.4); background: rgba(52,211,153,.1); }
+  .live .pill i { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+  .err .pill { color: #fecaca; border-color: rgba(248,113,113,.4); background: rgba(248,113,113,.1); }
+  .err .pill i { background: var(--bad); }
+
+  .stats { display: none; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .live .stats { display: grid; }
+  .stats div { padding: 10px 6px; border-radius: 13px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.06); }
+  .stats b { display: block; font-size: 17px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+  .stats span { font-size: 10.5px; color: #94a3b8; text-transform: uppercase; letter-spacing: .8px; font-weight: 600; }
+  .foot { margin-top: 14px; font-size: 12px; color: #64748b; }
 </style>
 </head>
 <body>
-<div class="card" id="card">
-  <h1 id="title">Share my live location</h1>
-  <p id="who">Tap the button, then choose <b>Allow</b> when your phone asks. Your position will be sent only while this page stays open.</p>
-  <button id="go">Share my location</button>
-  <button id="stop">Stop sharing</button>
-  <div id="status"><span class="dot"></span><span id="st">Not sharing</span></div>
-  <small id="note">You can stop at any time. Closing this page also stops sharing.</small>
+<canvas id="stars"></canvas>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div>
+      <div>Geo Spatial<small>Weather</small></div></div>
+    <div class="lang"><button id="l-en" class="on">EN</button><button id="l-ta">தமிழ்</button></div>
+  </div>
+
+  <main class="card" id="card">
+    <div class="orb"><div class="ring"></div><div class="globe"></div><div class="pin"></div></div>
+    <h1 id="title"></h1>
+    <p class="sub" id="sub"></p>
+    <ul class="pts">
+      <li><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="p1"></span></li>
+      <li><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span id="p2"></span></li>
+      <li><svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 7"/></svg><span id="p3"></span></li>
+    </ul>
+    <button class="btn" id="go"></button>
+    <button class="btn" id="stop"></button>
+    <div class="pill"><i></i><span id="st"></span></div>
+    <div class="stats">
+      <div><b id="s-acc">-</b><span id="k-acc"></span></div>
+      <div><b id="s-sent">0</b><span id="k-sent"></span></div>
+      <div><b id="s-time">0:00</b><span id="k-time"></span></div>
+    </div>
+    <div class="foot" id="foot"></div>
+  </main>
 </div>
+
 <script>
 (function () {
+  /* ---------- starfield ---------- */
+  const cv = document.getElementById('stars'), cx = cv.getContext('2d');
+  let W, H, stars = [];
+  function size() { W = cv.width = innerWidth; H = cv.height = innerHeight; stars = Array.from({ length: Math.round(W * H / 9000) }, () => ({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.3 + .2, a: Math.random() * 6.28, s: Math.random() * .02 + .005 })); }
+  size(); addEventListener('resize', size);
+  (function draw() { cx.clearRect(0, 0, W, H); stars.forEach(s => { s.a += s.s; cx.globalAlpha = .35 + .65 * Math.abs(Math.sin(s.a)); cx.fillStyle = '#cfe8ff'; cx.beginPath(); cx.arc(s.x, s.y, s.r, 0, 6.28); cx.fill(); }); requestAnimationFrame(draw); })();
+
+  /* ---------- text (English / Tamil) ---------- */
   const q = new URLSearchParams(location.search);
   const DB = (q.get('db') || '').replace(/\/+$/, '');
   const ID = q.get('id') || '';
-  const NAME = q.get('n') || '';
-  const $ = id => document.getElementById(id);
-  const ok = /^https:\/\/[a-z0-9.-]+\//i.test(DB + '/') && /^[A-Za-z0-9_-]{16,64}$/.test(ID);
-
-  if (NAME) $('who').innerHTML = 'Share your live location with <b>' + NAME.replace(/[<>&"]/g, '') + '</b>. Tap the button, then choose <b>Allow</b>. Your position is sent only while this page stays open.';
-  if (!ok) { $('go').style.display = 'none'; $('st').textContent = 'This link is incomplete. Ask for a new one.'; return; }
-
-  const base = DB + '/shares/' + ID;
-  let watchId = null, lastTrail = null, lastTrailAt = 0, wake = null, sending = false;
-
-  const dist = (a, b) => {                       // metres between two {lat,lng}
-    const R = 6371000, r = x => x * Math.PI / 180;
-    const dLat = r(b.lat - a.lat), dLng = r(b.lng - a.lng);
-    const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLng / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(h));
+  const NAME = (q.get('n') || '').replace(/[<>&"]/g, '').slice(0, 30);
+  const T = {
+    en: { title: n => n ? `Share your live location with <b>${n}</b>` : 'Share your live location', sub: 'Tap the button, then choose Allow when your phone asks.',
+          p1: 'Sent only while this page stays open', p2: 'Stop any time with one tap', p3: 'No account, no app to install',
+          go: 'Share my live location', stop: 'Stop sharing', foot: 'Your position is visible only to the person who sent you this link.',
+          idle: 'Not sharing yet', wait: 'Waiting for permission', live: 'Sharing live', lost: 'Connection lost, retrying', denied: 'Permission denied. Allow location for this page and try again.',
+          nopos: 'Could not get your position', nogeo: 'This browser cannot share location', stopped: 'Sharing stopped', bad: 'This link is incomplete. Ask for a new one.',
+          acc: 'Accuracy', sent: 'Updates', time: 'Sharing for' },
+    ta: { title: n => n ? `<b>${n}</b> உடன் உங்கள் நேரடி இருப்பிடத்தைப் பகிருங்கள்` : 'உங்கள் நேரடி இருப்பிடத்தைப் பகிருங்கள்', sub: 'கீழே உள்ள பொத்தானை அழுத்தி, போன் கேட்கும்போது Allow தேர்வு செய்யுங்கள்.',
+          p1: 'இந்தப் பக்கம் திறந்திருக்கும் வரை மட்டுமே பகிரப்படும்', p2: 'ஒரு தொடுதலில் எப்போது வேண்டுமானாலும் நிறுத்தலாம்', p3: 'கணக்கு அல்லது ஆப் தேவையில்லை',
+          go: 'என் நேரடி இருப்பிடத்தைப் பகிர்', stop: 'பகிர்வதை நிறுத்து', foot: 'இந்த லிங்கை அனுப்பியவருக்கு மட்டுமே உங்கள் இருப்பிடம் தெரியும்.',
+          idle: 'இன்னும் பகிரவில்லை', wait: 'அனுமதிக்காக காத்திருக்கிறது', live: 'நேரடியாகப் பகிர்கிறது', lost: 'இணைப்பு துண்டிக்கப்பட்டது, மீண்டும் முயல்கிறது', denied: 'அனுமதி மறுக்கப்பட்டது. இந்தப் பக்கத்திற்கு location அனுமதித்து மீண்டும் முயலுங்கள்.',
+          nopos: 'உங்கள் இருப்பிடத்தைப் பெற முடியவில்லை', nogeo: 'இந்த பிரவுசரில் location பகிர முடியாது', stopped: 'பகிர்வு நிறுத்தப்பட்டது', bad: 'இந்த லிங்க் முழுமையாக இல்லை. புதியது கேளுங்கள்.',
+          acc: 'துல்லியம்', sent: 'அப்டேட்', time: 'நேரம்' }
   };
-
-  async function put(path, body) {
-    return fetch(base + path + '.json', { method: 'PUT', body: JSON.stringify(body) });
+  const $ = id => document.getElementById(id);
+  let lang = localStorage.getItem('share_lang') || (/^ta/i.test(navigator.language) ? 'ta' : 'en'), stKey = 'idle';
+  function paint() {
+    const t = T[lang]; document.documentElement.lang = lang;
+    $('title').innerHTML = t.title(NAME); ['sub', 'p1', 'p2', 'p3', 'foot'].forEach(k => $(k).textContent = t[k]);
+    $('go').textContent = t.go; $('stop').textContent = t.stop; $('st').textContent = t[stKey];
+    $('k-acc').textContent = t.acc; $('k-sent').textContent = t.sent; $('k-time').textContent = t.time;
+    $('l-en').classList.toggle('on', lang === 'en'); $('l-ta').classList.toggle('on', lang === 'ta');
   }
+  function setSt(k, cls) { stKey = k; $('card').classList.toggle('live', cls === 'live'); $('card').classList.toggle('err', cls === 'err'); $('st').textContent = T[lang][k]; }
+  $('l-en').onclick = () => { lang = 'en'; localStorage.setItem('share_lang', lang); paint(); };
+  $('l-ta').onclick = () => { lang = 'ta'; localStorage.setItem('share_lang', lang); paint(); };
+  paint();
+
+  const ok = /^https:\/\/[a-z0-9.-]+\//i.test(DB + '/') && /^[A-Za-z0-9_-]{16,64}$/.test(ID);
+  if (!ok) { $('go').style.display = 'none'; setSt('bad', 'err'); return; }
+
+  /* ---------- sharing ---------- */
+  const base = DB + '/shares/' + ID;
+  let watchId = null, lastTrail = null, lastTrailAt = 0, wake = null, sending = false, sent = 0, t0 = 0, timer = null;
+  const dist = (a, b) => { const R = 6371000, r = x => x * Math.PI / 180, dLa = r(b.lat - a.lat), dLn = r(b.lng - a.lng);
+    const h = Math.sin(dLa / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLn / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+  const put = (path, body) => fetch(base + path + '.json', { method: 'PUT', body: JSON.stringify(body) });
+  const clock = () => { const s = Math.floor((Date.now() - t0) / 1000); $('s-time').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   async function send(pos) {
     if (sending) return; sending = true;
-    const p = { lat: +pos.coords.latitude.toFixed(6), lng: +pos.coords.longitude.toFixed(6),
-                acc: Math.round(pos.coords.accuracy || 0), t: Date.now(), active: true };
+    const p = { lat: +pos.coords.latitude.toFixed(6), lng: +pos.coords.longitude.toFixed(6), acc: Math.round(pos.coords.accuracy || 0), t: Date.now(), active: true };
     try {
       await put('/current', p);
-      const moved = !lastTrail || dist(lastTrail, p) > 20;
-      if (moved && Date.now() - lastTrailAt > 10000) {
+      if ((!lastTrail || dist(lastTrail, p) > 20) && Date.now() - lastTrailAt > 10000) {
         await fetch(base + '/trail.json', { method: 'POST', body: JSON.stringify({ lat: p.lat, lng: p.lng, t: p.t }) });
         lastTrail = p; lastTrailAt = Date.now();
       }
-      $('st').textContent = 'Sharing live';
-    } catch (e) { $('st').textContent = 'Connection lost, retrying'; }
+      sent++; $('s-sent').textContent = sent; $('s-acc').textContent = (p.acc || '-') + (p.acc ? ' m' : ''); setSt('live', 'live');
+    } catch (e) { setSt('lost', 'err'); }
     sending = false;
   }
 
   function start() {
-    if (!navigator.geolocation) { $('st').textContent = 'This browser cannot share location.'; return; }
-    $('st').textContent = 'Waiting for permission';
+    if (!navigator.geolocation) { setSt('nogeo', 'err'); return; }
+    setSt('wait');
     watchId = navigator.geolocation.watchPosition(pos => {
-      $('card').classList.add('live'); $('go').style.display = 'none'; $('stop').style.display = 'block';
-      send(pos);
-    }, err => {
-      $('card').classList.remove('live');
-      $('st').textContent = err.code === 1 ? 'Permission denied. Allow location for this page and try again.' : 'Could not get your position.';
-    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+      if (!t0) { t0 = Date.now(); timer = setInterval(clock, 1000); }
+      $('go').style.display = 'none'; $('stop').style.display = 'block'; send(pos);
+    }, err => setSt(err.code === 1 ? 'denied' : 'nopos', 'err'), { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
     if ('wakeLock' in navigator) navigator.wakeLock.request('screen').then(l => wake = l).catch(() => {});
   }
-
   async function stop() {
-    if (watchId != null) navigator.geolocation.clearWatch(watchId);
-    watchId = null;
+    if (watchId != null) navigator.geolocation.clearWatch(watchId); watchId = null;
     if (wake) { try { wake.release(); } catch (e) {} wake = null; }
+    clearInterval(timer); t0 = 0; sent = 0;
     try { await fetch(base + '/current/active.json', { method: 'PUT', body: 'false', keepalive: true }); } catch (e) {}
-    $('card').classList.remove('live'); $('stop').style.display = 'none'; $('go').style.display = 'block';
-    $('st').textContent = 'Sharing stopped';
+    $('stop').style.display = 'none'; $('go').style.display = 'block'; setSt('stopped');
   }
-
-  $('go').addEventListener('click', start);
-  $('stop').addEventListener('click', stop);
-  document.addEventListener('visibilitychange', () => {       // re-acquire screen lock when returning to the tab
-    if (document.visibilityState === 'visible' && watchId != null && 'wakeLock' in navigator)
-      navigator.wakeLock.request('screen').then(l => wake = l).catch(() => {});
-  });
-  window.addEventListener('pagehide', () => {
-    if (watchId != null) { try { navigator.sendBeacon && fetch(base + '/current/active.json', { method: 'PUT', body: 'false', keepalive: true }); } catch (e) {} }
-  });
+  $('go').onclick = start; $('stop').onclick = stop;
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && watchId != null && 'wakeLock' in navigator) navigator.wakeLock.request('screen').then(l => wake = l).catch(() => {}); });
+  addEventListener('pagehide', () => { if (watchId != null) fetch(base + '/current/active.json', { method: 'PUT', body: 'false', keepalive: true }).catch(() => {}); });
 })();
 </script>
 </body>
