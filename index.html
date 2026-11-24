@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Share my location</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 20px;
+         background: #0b1020; color: #e2e8f0; font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  .card { width: 100%; max-width: 420px; background: #111a33; border: 1px solid #22305a; border-radius: 20px; padding: 28px 24px; text-align: center; }
+  h1 { margin: 0 0 6px; font-size: 22px; }
+  p { margin: 8px 0; color: #94a3b8; font-size: 14.5px; }
+  button { width: 100%; margin-top: 18px; padding: 15px; border: 0; border-radius: 14px; font: 700 16px inherit; cursor: pointer; }
+  #go { background: #38bdf8; color: #06202e; }
+  #stop { background: #ef4444; color: #fff; display: none; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #64748b; margin-right: 8px; }
+  .live .dot { background: #34d399; box-shadow: 0 0 0 0 rgba(52,211,153,.7); animation: p 1.6s infinite; }
+  @keyframes p { to { box-shadow: 0 0 0 12px rgba(52,211,153,0); } }
+  #status { margin-top: 16px; font-weight: 600; }
+  small { display: block; margin-top: 14px; color: #64748b; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <h1 id="title">Share my live location</h1>
+  <p id="who">Tap the button, then choose <b>Allow</b> when your phone asks. Your position will be sent only while this page stays open.</p>
+  <button id="go">Share my location</button>
+  <button id="stop">Stop sharing</button>
+  <div id="status"><span class="dot"></span><span id="st">Not sharing</span></div>
+  <small id="note">You can stop at any time. Closing this page also stops sharing.</small>
+</div>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const DB = (q.get('db') || '').replace(/\/+$/, '');
+  const ID = q.get('id') || '';
+  const NAME = q.get('n') || '';
+  const $ = id => document.getElementById(id);
+  const ok = /^https:\/\/[a-z0-9.-]+\//i.test(DB + '/') && /^[A-Za-z0-9_-]{16,64}$/.test(ID);
+
+  if (NAME) $('who').innerHTML = 'Share your live location with <b>' + NAME.replace(/[<>&"]/g, '') + '</b>. Tap the button, then choose <b>Allow</b>. Your position is sent only while this page stays open.';
+  if (!ok) { $('go').style.display = 'none'; $('st').textContent = 'This link is incomplete. Ask for a new one.'; return; }
+
+  const base = DB + '/shares/' + ID;
+  let watchId = null, lastTrail = null, lastTrailAt = 0, wake = null, sending = false;
+
+  const dist = (a, b) => {                       // metres between two {lat,lng}
+    const R = 6371000, r = x => x * Math.PI / 180;
+    const dLat = r(b.lat - a.lat), dLng = r(b.lng - a.lng);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  };
+
+  async function put(path, body) {
+    return fetch(base + path + '.json', { method: 'PUT', body: JSON.stringify(body) });
+  }
+
+  async function send(pos) {
+    if (sending) return; sending = true;
+    const p = { lat: +pos.coords.latitude.toFixed(6), lng: +pos.coords.longitude.toFixed(6),
+                acc: Math.round(pos.coords.accuracy || 0), t: Date.now(), active: true };
+    try {
+      await put('/current', p);
+      const moved = !lastTrail || dist(lastTrail, p) > 20;
+      if (moved && Date.now() - lastTrailAt > 10000) {
+        await fetch(base + '/trail.json', { method: 'POST', body: JSON.stringify({ lat: p.lat, lng: p.lng, t: p.t }) });
+        lastTrail = p; lastTrailAt = Date.now();
+      }
+      $('st').textContent = 'Sharing live';
+    } catch (e) { $('st').textContent = 'Connection lost, retrying'; }
+    sending = false;
+  }
+
+  function start() {
+    if (!navigator.geolocation) { $('st').textContent = 'This browser cannot share location.'; return; }
+    $('st').textContent = 'Waiting for permission';
+    watchId = navigator.geolocation.watchPosition(pos => {
+      $('card').classList.add('live'); $('go').style.display = 'none'; $('stop').style.display = 'block';
+      send(pos);
+    }, err => {
+      $('card').classList.remove('live');
+      $('st').textContent = err.code === 1 ? 'Permission denied. Allow location for this page and try again.' : 'Could not get your position.';
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+    if ('wakeLock' in navigator) navigator.wakeLock.request('screen').then(l => wake = l).catch(() => {});
+  }
+
+  async function stop() {
+    if (watchId != null) navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    if (wake) { try { wake.release(); } catch (e) {} wake = null; }
+    try { await fetch(base + '/current/active.json', { method: 'PUT', body: 'false', keepalive: true }); } catch (e) {}
+    $('card').classList.remove('live'); $('stop').style.display = 'none'; $('go').style.display = 'block';
+    $('st').textContent = 'Sharing stopped';
+  }
+
+  $('go').addEventListener('click', start);
+  $('stop').addEventListener('click', stop);
+  document.addEventListener('visibilitychange', () => {       // re-acquire screen lock when returning to the tab
+    if (document.visibilityState === 'visible' && watchId != null && 'wakeLock' in navigator)
+      navigator.wakeLock.request('screen').then(l => wake = l).catch(() => {});
+  });
+  window.addEventListener('pagehide', () => {
+    if (watchId != null) { try { navigator.sendBeacon && fetch(base + '/current/active.json', { method: 'PUT', body: 'false', keepalive: true }); } catch (e) {} }
+  });
+})();
+</script>
+</body>
+</html>
